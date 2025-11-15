@@ -1,5 +1,6 @@
 """Main FastAPI application"""
 
+import sentry_sdk
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -8,9 +9,19 @@ from app.core.config import settings
 from app.core.logging import logger
 from app.core.database import async_engine
 from app.core.redis import async_redis_client
-from app.api.routes import payments, webhooks, reports
+from app.api.routes import payments, webhooks, reports, auth
 from app.schemas.payment import HealthCheck
+from app.middleware.idempotency import IdempotencyMiddleware
+from app.middleware.rate_limit import limiter
 from app import __version__
+
+# Initialize Sentry
+if hasattr(settings, "SENTRY_DSN") and settings.SENTRY_DSN:
+    sentry_sdk.init(
+        dsn=settings.SENTRY_DSN,
+        environment=settings.API_ENVIRONMENT,
+        traces_sample_rate=0.1 if settings.API_ENVIRONMENT == "production" else 1.0,
+    )
 
 # Create FastAPI app
 app = FastAPI(
@@ -21,6 +32,9 @@ app = FastAPI(
     redoc_url="/redoc",
 )
 
+# Add middlewares
+app.state.limiter = limiter
+
 # CORS middleware
 app.add_middleware(
     CORSMiddleware,
@@ -29,6 +43,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Idempotency middleware
+app.add_middleware(IdempotencyMiddleware)
 
 
 # Event handlers
@@ -70,6 +87,7 @@ async def shutdown_event():
 
 
 # Include routers
+app.include_router(auth.router, prefix="/api/v1")
 app.include_router(payments.router, prefix="/api/v1")
 app.include_router(webhooks.router, prefix="/api/v1")
 app.include_router(reports.router, prefix="/api/v1")

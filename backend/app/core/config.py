@@ -71,6 +71,17 @@ class Settings(BaseSettings):
     MAX_RETRY_ATTEMPTS: int = Field(default=3)
     RETRY_BACKOFF_SECONDS: int = Field(default=60)
 
+    # Email Configuration
+    SMTP_HOST: str = Field(default="smtp.gmail.com")
+    SMTP_PORT: int = Field(default=587)
+    SMTP_USER: str = Field(default="")
+    SMTP_PASSWORD: str = Field(default="")
+    FROM_EMAIL: str = Field(default="noreply@payment-gateway.com")
+    FROM_NAME: str = Field(default="Payment Gateway")
+
+    # Sentry
+    SENTRY_DSN: str = Field(default="")
+
 
 # Global settings instance
 settings = Settings()
